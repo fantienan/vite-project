@@ -1,0 +1,17 @@
+**/*.svg
+**/*.ejs
+**/*.html
+package.json
+.umi
+.umi-production
+.umi-test
+docs
+docs-dist
+**/.npmrc
+.vscode
+**/es
+**/lib
+**\__snapshots__\**
+**/*.png
+**/*.jpg
+*.md.bak*

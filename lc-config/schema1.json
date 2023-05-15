@@ -1,0 +1,306 @@
+[
+  {
+    "componentName": "Page",
+    "id": "node_dockcviv8fo1",
+    "props": {
+      "ref": "outerView",
+      "style": {
+        "height": "100%"
+      }
+    },
+    "fileName": "/",
+    "dataSource": {
+      "list": [
+        {
+          "type": "fetch",
+          "isInit": true,
+          "options": {
+            "params": {},
+            "method": "GET",
+            "isCors": true,
+            "timeout": 5000,
+            "headers": {},
+            "uri": "mock/info.json"
+          },
+          "id": "info"
+        }
+      ]
+    },
+    "state": {
+      "text": {
+        "type": "JSExpression",
+        "value": "\"outer\""
+      },
+      "isShowDialog": {
+        "type": "JSExpression",
+        "value": "false"
+      }
+    },
+    "css": "body {\n  font-size: 12px;\n}\n\n.button {\n  width: 100px;\n  color: #ff00ff\n}",
+    "lifeCycles": {
+      "componentDidMount": {
+        "type": "JSFunction",
+        "value": "function componentDidMount() {\n  console.log('did mount');\n}"
+      },
+      "componentWillUnmount": {
+        "type": "JSFunction",
+        "value": "function componentWillUnmount() {\n  console.log('will unmount');\n}"
+      }
+    },
+    "methods": {
+      "testFunc": {
+        "type": "JSFunction",
+        "value": "function testFunc() {\n  console.log('test func');\n}"
+      },
+      "onClick": {
+        "type": "JSFunction",
+        "value": "function onClick() {\n  this.setState({\n    isShowDialog: true\n  });\n}"
+      },
+      "closeDialog": {
+        "type": "JSFunction",
+        "value": "function closeDialog() {\n  this.setState({\n    isShowDialog: false\n  });\n}"
+      }
+    },
+    "originCode": "class LowcodeComponent extends Component {\n  state = {\n    \"text\": \"outer\",\n    \"isShowDialog\": false\n  }\n  componentDidMount() {\n    console.log('did mount');\n  }\n  componentWillUnmount() {\n    console.log('will unmount');\n  }\n  testFunc() {\n    console.log('test func');\n  }\n  onClick() {\n    this.setState({\n      isShowDialog: true\n    })\n  }\n  closeDialog() {\n    this.setState({\n      isShowDialog: false\n    })\n  }\n}",
+    "hidden": false,
+    "title": "",
+    "isLocked": false,
+    "condition": true,
+    "conditionGroup": "",
+    "children": [
+      {
+        "componentName": "PageHeader",
+        "id": "node_ocl8vcwpbq3",
+        "props": {
+          "title": "Title",
+          "subTitle": "This is a subtitle",
+          "ghost": false,
+          "tags": {
+            "type": "JSSlot",
+            "value": [
+              {
+                "componentName": "Menu",
+                "id": "node_ocl8vcwpbqg",
+                "props": {
+                  "mode": "inline",
+                  "defaultSelectedKeys": ["1"],
+                  "defaultOpenKeys": ["sub1"],
+                  "theme": "dark",
+                  "items": [
+                    {
+                      "key": "item-i5wd",
+                      "category": "Menu.Item",
+                      "children": "菜单名"
+                    }
+                  ],
+                  "forceSubMenuRender": false,
+                  "inlineCollapsed": false,
+                  "inlineIndent": 0,
+                  "multiple": false,
+                  "openKeys": [],
+                  "selectable": false,
+                  "selectedKeys": [],
+                  "subMenuCloseDelay": 0,
+                  "subMenuOpenDelay": 0,
+                  "triggerSubMenuAction": "hover"
+                },
+                "hidden": false,
+                "title": "",
+                "isLocked": false,
+                "condition": true,
+                "conditionGroup": ""
+              }
+            ]
+          },
+          "extra": "",
+          "footer": "",
+          "style": {
+            "textAlign": "left"
+          }
+        },
+        "hidden": false,
+        "title": "",
+        "isLocked": false,
+        "condition": true,
+        "conditionGroup": ""
+      },
+      {
+        "componentName": "Alert",
+        "id": "node_ocl8vcwpbqk",
+        "props": {
+          "message": "Success Tips",
+          "description": "Detailed description and advice about successful copywriting.",
+          "type": "success",
+          "showIcon": true,
+          "banner": false,
+          "closable": false
+        },
+        "hidden": false,
+        "title": "",
+        "isLocked": false,
+        "condition": true,
+        "conditionGroup": ""
+      },
+      {
+        "componentName": "Button",
+        "id": "node_ocl8vcwpbql",
+        "props": {
+          "type": "primary",
+          "children": "主按钮",
+          "htmlType": "button",
+          "size": "middle",
+          "shape": "default",
+          "icon": {
+            "type": "JSSlot",
+            "value": [
+              {
+                "componentName": "Icon",
+                "id": "node_ocl8vcwpbqn",
+                "props": {
+                  "type": "SearchOutlined",
+                  "size": 14
+                },
+                "hidden": false,
+                "title": "",
+                "isLocked": false,
+                "condition": true,
+                "conditionGroup": ""
+              }
+            ]
+          },
+          "block": false,
+          "danger": false,
+          "ghost": false,
+          "disabled": false,
+          "__events": {
+            "eventDataList": [
+              {
+                "type": "componentEvent",
+                "name": "onClick",
+                "relatedEventName": "onClick"
+              }
+            ],
+            "eventList": [
+              {
+                "name": "onClick",
+                "template": "onClick(event,${extParams}){\n// 点击按钮时的回调\nconsole.log('onClick', event);}",
+                "disabled": true
+              }
+            ]
+          },
+          "onClick": {
+            "type": "JSFunction",
+            "value": "function(){this.onClick.apply(this,Array.prototype.slice.call(arguments).concat([])) }"
+          }
+        },
+        "hidden": false,
+        "title": "",
+        "isLocked": false,
+        "condition": true,
+        "conditionGroup": ""
+      },
+      {
+        "componentName": "Modal",
+        "id": "node_ocl8vcwpbqo",
+        "props": {
+          "title": "Basic Modal",
+          "okText": "确认",
+          "cancelText": "取消",
+          "visible": {
+            "type": "JSExpression",
+            "value": "this.state.isShowDialog",
+            "mock": false
+          },
+          "destroyOnClose": true,
+          "centered": false,
+          "closable": false,
+          "confirmLoading": false,
+          "forceRender": false,
+          "keyboard": false,
+          "mask": false,
+          "maskClosable": false,
+          "zIndex": 0,
+          "bodyStyle": {},
+          "maskStyle": {},
+          "wrapClassName": "",
+          "__events": {
+            "eventDataList": [
+              {
+                "type": "componentEvent",
+                "name": "onOk",
+                "relatedEventName": "closeDialog"
+              },
+              {
+                "type": "componentEvent",
+                "name": "onCancel",
+                "relatedEventName": "closeDialog"
+              }
+            ],
+            "eventList": [
+              {
+                "name": "afterClose",
+                "templete": "onCancel(${extParams}){\n// 完全关闭后的回调\nconsole.log('afterClose');}",
+                "disabled": false
+              },
+              {
+                "name": "onCancel",
+                "template": "onCancel(${extParams}){\n// 点击遮罩层或右上角叉或取消按钮的回调\nconsole.log('onCancel');}",
+                "disabled": true
+              },
+              {
+                "name": "onOk",
+                "template": "onOk(${extParams}){\n// 点击确定回调\nconsole.log('onOk');}",
+                "disabled": true
+              }
+            ]
+          },
+          "onOk": {
+            "type": "JSFunction",
+            "value": "function(){this.closeDialog.apply(this,Array.prototype.slice.call(arguments).concat([])) }"
+          },
+          "onCancel": {
+            "type": "JSFunction",
+            "value": "function(){this.closeDialog.apply(this,Array.prototype.slice.call(arguments).concat([])) }"
+          }
+        },
+        "hidden": false,
+        "title": "",
+        "isLocked": false,
+        "condition": true,
+        "conditionGroup": ""
+      },
+      {
+        "componentName": "Menu",
+        "id": "node_ocl8vcwpbqi",
+        "props": {
+          "mode": "inline",
+          "defaultSelectedKeys": ["1"],
+          "defaultOpenKeys": ["sub1"],
+          "theme": "dark",
+          "items": [
+            {
+              "key": "item-i5wd",
+              "category": "Menu.Item",
+              "children": "菜单名"
+            }
+          ],
+          "forceSubMenuRender": false,
+          "inlineCollapsed": false,
+          "inlineIndent": 0,
+          "multiple": false,
+          "openKeys": [],
+          "selectable": false,
+          "selectedKeys": [],
+          "subMenuCloseDelay": 0,
+          "subMenuOpenDelay": 0,
+          "triggerSubMenuAction": "hover"
+        },
+        "hidden": false,
+        "title": "",
+        "isLocked": false,
+        "condition": true,
+        "conditionGroup": ""
+      }
+    ]
+  }
+]

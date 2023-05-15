@@ -1,0 +1,144 @@
+<!doctype html>
+<html>
+<head>
+	<meta charset="utf-8">
+	<title>Uppy</title>
+	<!-- 1. Add CSS to `<head>` -->
+	<link href="https://transloadit.edgly.net/releases/uppy/v1.5.0/uppy.min.css" rel="stylesheet">
+</head>
+<body>
+<div id="uppy-dashboard-area"></div>
+<!-- 2. Add JS before the closing `</body>` -->
+<script src="https://transloadit.edgly.net/releases/uppy/v1.5.0/uppy.min.js"></script>
+<script>
+	var zhcn = {
+		strings: {
+			// When `inline: false`, used as the screen reader label for the button that closes the modal.
+			closeModal: '关闭弹框',
+			// Used as the screen reader label for the plus (+) button that shows the “Add more files” screen
+			addMoreFiles: '添加更多文件',
+			// Used as the header for import panels, e.g., “Import from Google Drive”.
+			importFrom: '从 %{name} 导入',
+			// When `inline: false`, used as the screen reader label for the dashboard modal.
+			dashboardWindowTitle: 'Uppy Dashboard Window (Press escape to close)',
+			// When `inline: true`, used as the screen reader label for the dashboard area.
+			dashboardTitle: 'Uppy Dashboard',
+			// Shown in the Informer when a link to a file was copied to the clipboard.
+			copyLinkToClipboardSuccess: '链接已复制',
+			// Used when a link cannot be copied automatically — the user has to select the text from the
+			// input element below this string.
+			copyLinkToClipboardFallback: '复制下面的链接',
+			// Used as the hover title and screen reader label for buttons that copy a file link.
+			copyLink: '复制链接',
+			// Used as the hover title and screen reader label for file source icons, e.g., “File source: Dropbox”.
+			fileSource: '文件来源: %{name}',
+			// Used as the label for buttons that accept and close panels (remote providers or metadata editor)
+			done: '完成',
+			// Used as the screen reader label for buttons that remove a file.
+			removeFile: '移除文件',
+			// Used as the screen reader label for buttons that open the metadata editor panel for a file.
+			editFile: '编辑文件',
+			// Shown in the panel header for the metadata editor. Rendered as “Editing image.png”.
+			editing: '正在编辑 %{file}',
+			// Text for a button shown on the file preview, used to edit file metadata
+			edit: '编辑',
+			// Used as the screen reader label for the button that saves metadata edits and returns to the
+			// file list view.
+			finishEditingFile: '结束编辑文件',
+			// Used as the label for the tab button that opens the system file selection dialog.
+			myDevice: '我的设备',
+			// Shown in the main dashboard area when no files have been selected, and one or more
+			// remote provider plugins are in use. %{browse} is replaced with a link that opens the system
+			// file selection dialog.
+			dropPasteImport: 'Drop files here, paste, %{browse} or import from',
+			// Shown in the main dashboard area when no files have been selected, and no provider
+			// plugins are in use. %{browse} is replaced with a link that opens the system
+			// file selection dialog.
+			dropPaste: '拖拽文件到这里 or %{browse}',
+			// This string is clickable and opens the system file selection dialog.
+			browse: '浏览本地文件',
+			// Used as the hover text and screen reader label for file progress indicators when
+			// they have been fully uploaded.
+			uploadComplete: '上传完成',
+			// Used as the hover text and screen reader label for the buttons to resume paused uploads.
+			resumeUpload: '继续',
+			// Used as the hover text and screen reader label for the buttons to pause uploads.
+			pauseUpload: '暂停',
+			// Used as the hover text and screen reader label for the buttons to retry failed uploads.
+			retryUpload: '重试',
+
+			// Used in a title, how many files are currently selected
+			xFilesSelected: {
+				0: '%{smart_count} 个文件已选择',
+				1: '%{smart_count} 个文件已选择'
+			},
+
+			// uppy/status-bar strings:
+			uploading: '上传中...',
+			complete: '完成'
+			// ...etc
+		}
+	};
+	var uppy = Uppy.Core({
+		autoProceed: false,
+		allowMultipleUploads: true, // 上传完成之后，是否可继续添加文件上传
+		restrictions: {
+
+			maxFileSize: 1024 * 1024 * 1024 * 4, // 以字节为单位
+			maxNumberOfFiles: 100,
+			minNumberOfFiles: 1,
+			//allowedFileTypes: ['image/*', 'video/*', 'img/*','text/*','html/*'] // mime类型(image/png)或者文件后缀名(.jpg)
+		}
+	})
+			.use(Uppy.Dashboard, {
+				id: 'Dashboard',
+				metaFields: [
+					{ id: 'name', name: 'Name', placeholder: 'file name' }
+				],
+				target: '#uppy-dashboard-area',
+				note: 'image and video only',
+				inline: true,
+				showLinkToFileUploadResult: true,
+				showProgressDetails: true,
+				hideUploadButton: false,
+				hideRetryButton: false,
+				hidePauseResumeButton: false,
+				hideCancelButton: false,
+				hideProgressAfterFinish: false,
+				closeModalOnClickOutside: false,
+				closeAfterFinish: false,
+				disableStatusBar: false,
+				disableInformer: false,
+				disableThumbnailGenerator: false,
+				disablePageScrollWhenModalOpen: true,
+				animateOpenClose: true,
+				proudlyDisplayPoweredByUppy: true,
+				onRequestCloseModal: () => this.closeModal(),
+				showSelectedFiles: true,
+				locale: zhcn,
+				browserBackButtonClose: false
+			})
+			.use(Uppy.Tus, {
+				endpoint: '/csldt/ldt-service/file/upload', //这个地方填写你的server地址
+				chunkSize: 5 * 1024 * 1024,
+				parallelUploads: 5
+			})
+
+
+	uppy.on('file-added', (file) => {
+		uppy.setFileMeta(file)
+	})
+	uppy.on('file-removed', (file) => {
+		console.log('Removed file', file)
+	})
+	uppy.on('upload-success', (file, response) => {
+console.log("fileInfo", file)
+console.log("response", response)
+	})
+	uppy.on('complete', (result) => {
+		console.log('Upload complete! We’ve uploaded these files:', result.successful)
+		console.log('Upload complete! result:', result)
+	})
+</script>
+</body>
+</html>
