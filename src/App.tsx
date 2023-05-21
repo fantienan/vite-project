@@ -15,8 +15,8 @@ function App() {
   return (
     <div className="App">
       {/* <OlDemo /> */}
-      <WebGLPointsLayerExample/>
-      {/* <BigFile /> */}
+      {/* <WebGLPointsLayerExample/> */}
+      <BigFile />
       {/* <UppyClass/> */}
       {/* <Maptalks/> */}
       {/* <StyleProvider hashPriority="high">

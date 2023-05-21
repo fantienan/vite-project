@@ -22,7 +22,7 @@ export default defineConfig({
   resolve: {
     alias: [
       {find: /^~/, replacement: ''},
-{find: '@ol', replacement: path.resolve(__dirname, 'node_modules/ol/')},
+      {find: '@ol', replacement: path.resolve(__dirname, 'node_modules/ol/')},
     ]
   },
   css: {
@@ -39,7 +39,12 @@ export default defineConfig({
 host: '0.0.0.0',
   proxy: {
     "/csldt/ldt-service": {
+      // target: "http://123.125.92.17:28001",
       target: "http://10.10.2.33:8111",
+    },
+    "/csldtfile": {
+      target: "http://10.10.2.33:8222",
+      rewrite: (path) => path.replace(/^\/csldtfile/, '/csldt/ldt-service/file')
     }
   }
   }

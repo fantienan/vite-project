@@ -1,220 +1,136 @@
 <!DOCTYPE html>
 <html>
   <head>
-    <title>Accessible Map</title>
+    <title>Symbols with WebGL</title>
+
     <meta charset="UTF-8">
     <link rel="stylesheet" href="./ol.css" type="text/css">
     <!-- The line below is only needed for old environments like Internet Explorer and Android 4.x -->
-    <script src="./ol-4.6.5.js"></script>
-    <style>
-      a.skiplink {
-        position: absolute;
-        clip: rect(1px, 1px, 1px, 1px);
-        padding: 0;
-        border: 0;
-        height: 1px;
-        width: 1px;
-        overflow: hidden;
-      }
-      a.skiplink:focus {
-        clip: auto;
-        height: auto;
-        width: auto;
-        background-color: #fff;
-        padding: 0.3em;
-      }
-      #map:focus {
-        outline: #4A74A8 solid 0.15em;
-      }
-    </style>
+    <script src="./ol/4.5.0/ol-debug.js"></script>
   </head>
   <body>
-    <div id="map" class="map" tabindex="0"></div>
-    <div style="display: flex;">
-      <div id="total"></div>
-
-      <select id="featuer-select">
-        <option value="all">全部</option>
-      </select>
-        <button id="data-btn">获取数据</button>
-        <button id="enable-btn">查看轨迹</button>
-        <button id="clear-btn">清空轨迹</button>
+    <div id="map" class="map" style="height: 80vh"></div>
+    <div id="total">数据加载中...</div>
+    <div style="display: flex;gap: 10px;">
+      <button id="render-btn" style="display: none;">渲染</button>
+      <input id="reconciliation" type="checkbox" style="display: none;">协调渲染</input>
+      <button id="reconciliation-cancle" style="display: none;">取消协调渲染</button>
+      <button id="clear-btn">清空轨迹</button>
+      <div id="1to22-btn-group">
+        <button id="1to6">查看1至6数据缓存分布</button>
+        <button id="7to12">查看7至12数据缓存分布</button>
+        <button id="13to18">查看13至18数据缓存分布</button>
+        <button id="19to22">查看19至22数据缓存分布</button>
+      </div>
     </div>
-    <script >
-        async function main () {
-          var map = new ol.Map({
-            layers: [
-              new ol.layer.Tile({ source: new ol.source.OSM() }) 
-            ],
-            target: 'map',
-            controls: ol.control.defaults({
-              attributionOptions: {
-                collapsible: false
-              }
-            }),
-            view: new ol.View({
-              center: [12288470.692939252, -1565430.3392804065],
-              minZoom: 2,
-              zoom: 2
-            })
-          });
-          window._map = map
-
-          var vectorLayer = new ol.layer.Vector({
-            source: new ol.source.Vector({
-              features: []
-            }),
-            style: new ol.style.Style({
-              image: new ol.style.Circle({
-
-                radius: 6,
-                fill: new ol.style.Fill({
-                  color: 'red'
-                }),
-                stroke: new ol.style.Stroke({
-                  color: 'white',
-                  width: 2
-                })
-              })
-            })
-          });
-          map.addLayer(vectorLayer);
-
-      document.getElementById("clear-btn").addEventListener("click", function() {
-        vectorSource.clear();
-      });
-
-      document.getElementById("data-btn").addEventListener("click", async function() {
-          const res = await fetch('./xh_realtime_point.txt').then(res => res.text())
-          if (!res) return
-
-          const features = []
-          const errorData = []
-          const data = res.split('\n')
-          const fieldnames = data[0].split(',').map(item => item.replaceAll('\r',''));
-          const dataSource = data.slice(1).map(item => {
-            const obj = {}
-            const arr = item.split(',')
-            fieldnames.forEach((field, index) => {
-              obj[field] = (arr[index]??"").replaceAll("|",'').replaceAll("\r",'').trim();
-            })
-            if (arr.length !== fieldnames.length){
-              errorData.push(obj);
-            } else {
-              features.push(new ol.Feature({
-                geometry: new ol.geom.Point(ol.proj.fromLonLat([obj.lon, obj.lat]))
-              })) 
-              return obj
-            }
-          }).filter(item => item)
-          document.getElementById('total').innerHTML = `总共${dataSource.length}条数据，错误${errorData.length}条数据`
-
-          const html = Array(Math.floor(features.length / 10000)).fill().map((item, index) => {
-            if (index === 0) {
-              return `<option value="all">全部</option>`
-            }
-            return `<option value="${index * 10000}">${`${index}万`}</option>`
-          }).join('');
-          let value = 'all'
-          document.getElementById('featuer-select').innerHTML =html; 
-          document.getElementById('featuer-select').addEventListener('change', (e) => {
-            value = e.target.value
-            vectorLayer.getSource().clear()
+    <div style="display: flex;gap: 10px;">
+      <div>
+        <input type="checkbox" id="stopUpdateSource">停止更新数据源</input>
+        <input type="checkbox" id="stopUpdatePoints">停止更新点</input>
+      </div>
+      <div style="display: flex;background-color: black;color: #fff">
+        渲染时长<div id="ms"></div>
+      </div>
+      <div style="display: flex;">
+        地图级别<div id="zoom"></div>
+      </div>
+      <div style="display: flex;">
+        经纬度<div id="coord"></div>
+      </div>
+    </div>
+    <div id="log" style="background-color: red;color: #fff;"></div>
+    <script src="./ol/proj4.js"></script>
+    <script src="./ol/proj4-ext.js"></script>
+    <script src="./ol/jsts.min.js"></script>
+    <script src="./layer-config.js"></script>
+    <script src="./enqueue.js"></script>
+    <script src="./source-collection.js"></script>
+    <script src="./layer-factory.js"></script>
+    <script src="./helper.js"></script>
+    <script>
+      const worker = new Worker('./worker.js');
+      const helper = new Helper({reconciliation: true});
+      helper.initMap(document.getElementById("map"));
+      const renderBtn = document.getElementById("render-btn");
+      const clearBtn = document.getElementById("clear-btn");
+      const totalNode = document.getElementById('total');
+      const msNode = document.getElementById("ms")
+      const btnGroup = document.getElementById("1to22-btn-group");
+      const _1to6 = document.getElementById("1to6");
+      const _7to12Btn = document.getElementById("7to12");
+      const _13to18Btn = document.getElementById("13to18");
+      const _19to22Btn = document.getElementById("19to22");
+      const stopUpdateSource = document.getElementById("stopUpdateSource");
+      const stopUpdatePoints = document.getElementById("stopUpdatePoints");
+      const reconciliation = document.getElementById("reconciliation")
+      const reconciliationCancle = document.getElementById("reconciliation-cancle")
+      function setPointSources(features) {
+        return new Promise((resolve) => {
+          helper.fetchDataByScript('./geojson/coordinates.js').then(res => {
+            helper.setCoordinates(res)
+            resolve(res);
           })
 
-          document.getElementById("enable-btn").addEventListener("click", function() {
-            if (value === 'all') {
-              vectorLayer.getSource().clear()
-              vectorLayer.getSource().addFeatures(features)
-            } else {
-              const filterFeatures = features.slice(0,value);
-              vectorLayer.getSource().clear()
-              vectorLayer.getSource().addFeatures(filterFeatures)
-            }
-          })
         })
-
-      
       }
-        main();
 
-// const Units = {
-//     "RADIANS": "radians",
-//     "DEGREES": "degrees",
-//     "FEET": "ft",
-//     "METERS": "m",
-//     "PIXELS": "pixels",
-//     "TILE_PIXELS": "tile-pixels",
-//     "USFEET": "us-ft"
-// };
-// function getResolutions(firstDpi) {
-//   const resolution = firstDpi || 360 / 256;
-//   const resolutions = [];
-//   const matrixIds = [];
-//   for (let z = 0; z <= maxZoom; z += 1) {
-//     resolutions[z] = resolution / 2 ** z;
-//     matrixIds[z] = z.toString();
-//   }
-//   return {
-//     resolutions,
-//     matrixIds,
-//   };
-// }
-// const mask = '';
-// const crossOrigin = 'Anonymous';
-// const epsg = 'EPSG:4490';
-// const maxZoom = 21;
-// const paramString = "mapId=1619404b-b6f6-4cf7-b9ec-705a0c3f977e&maps=1619404b-b6f6-4cf7-b9ec-705a0c3f977e";
-// let tileGrid = undefined;
-// const projection = new ol.proj.Projection({ code: epsg, units: Units.DEGREES });
-// const layerConfig = await fetch('./2019-image.json').then(res => res.json());
-// const rs = getResolutions(+layerConfig.d_firstDpi);
-// if (layerConfig.srid !== 3857) {
-//   tileGrid = new ol.tilegrid.TileGrid({
-//     extent: JSON.parse(layerConfig.c_extent),
-//     origin: JSON.parse(layerConfig.c_origin),
-//     resolutions: rs.resolutions,
-//     tileSize: 256,
-//   });
-// }
-// const xyzSource = new ol.source.XYZ({
-//   projection: layerConfig.srid ? `EPSG:${layerConfig.srid}` : projection,
-//   crossOrigin,
-//   tileGrid,
-//   cacheSize: 0,
-//   tileUrlFunction: function(tileCoord) {
-//     let url = layerConfig.c_url.trim() + layerConfig.c_path.trim();
-//     let z = tileCoord[0];
-//     let x = tileCoord[1];
-//     let y = tileCoord[2];
-//     url += url.indexOf('?') === -1 ? '?' : '&';
-//     url += `t=${new Date().getTime()}&${paramString}`;
-//     if (url.indexOf('mask') > -1) {
-//       url = url.replace(/{mask}/, mask);
-//     }
-//     url = url.replace('{z}', z.toString()).replace('{y}', y.toString()).replace('{x}', x.toString());
-//     return url;
-//   },
-// });
-// const tileLayer = new ol.layer.Tile({
-//   source: xyzSource,
-//   zIndex: layerConfig.i_zIndex,
-//   visible: !!layerConfig.i_visible,
-//   opacity: layerConfig.d_opacity,
-//   maxResolution: rs.resolutions[layerConfig.i_minLevel],
-//   minResolution: rs.resolutions[layerConfig.i_maxLevel],
-  
-// });
-// const layer = new ol.layer.Tile({ source: new ol.source.OSM() });
-// const view = new ol.View({
-//   center: [104.13669144100015, 29.2878471785001],
-//   maxZoom: 22,
-//   minZoom: 1,
-//   projection,
-//   extent: [-180, -90, 180, 90],
-//   zoom: 5,
-// });
-// const map = new ol.Map({ target: 'map', layers: [tileLayer, layer], view });
+      function renderPoints() {
+        return new Promise((resolve) => {
+            const time = {start: Date.now()}
+            const info = helper.renderPoints().then(info => {
+              time.end = Date.now();
+              time.duration = (time.end - time.start) / 1000 + '秒';
+              msNode.innerHTML = time.duration;
+            })
+        })
+      }
+
+
+      window.onload = function() {
+        setTimeout(function() {
+          setPointSources().then(res => {
+            totalNode.innerHTML = `总共${res.length}条数据`
+            renderPoints();
+            renderBtn.addEventListener("click", function() {
+              renderPoints();
+            });
+
+            reconciliation.addEventListener("input", function(e) {
+              helper.setReconciliation(e.target.checked)
+            });
+
+            reconciliationCancle.addEventListener("click", function() {
+              helper.enqueue.cancel(false)
+              reconciliation.checked = false;
+            })
+
+            btnGroup.addEventListener("click", function(e) {
+              if (e.target.id === '1to6') {
+                helper.source1to6Collection.setActive(!helper.source1to6Collection.active)
+              } else if (e.target.id === '7to12') {
+                helper.source7to12Collection.setActive(!helper.source7to12Collection.active)
+              } else if (e.target.id === '13to18') {
+                helper.source13to18Collection.setActive(!helper.source13to18Collection.active)
+              } else if (e.target.id === '19to22') {
+                helper.source19Collection.setActive(!helper.source19Collection.active)
+              }
+            })
+
+            clearBtn.addEventListener("click", function() {
+              document.getElementById("log").innerHTML = ``
+              helper.clear()
+            });
+
+            stopUpdateSource.addEventListener("input", function(e) {
+              window._stopUpdateSource_ = e.target.checked;
+            });
+
+            stopUpdatePoints.addEventListener("input", function(e) {
+              window._stopUpdatePoints_ = e.target.checked;
+            })
+          })
+        }, 1000)
+      }
     </script>
   </body>
 </html>

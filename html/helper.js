@@ -1,11 +1,23 @@
+/**
+ * 1. 根据不同的级别范围按照不同的比例均匀抽取数据
+ * 2. 每一个级别范围对应一个数据源
+ * 3. 根据不同的级别范围对抽取后的数据按块（四至）分组存储到数据源中
+ * 4. 缩放和移动时
+ *      通过四至获取数据源中的数据块
+ *      根据数据块中的点绘制要素并缓存到数据源中，缓存要素、是否需要绘制要素的标识（默认是true，绘制过后设置为false）,缓存更新策略∶用户主动更新和定时更新
+ * 5. 通过坐标绘制要素
+ *      将点坐标存不到任务队列中
+ *      使用requestIdleCallback在浏览器空闲时间内绘制要素，可以随时中断绘制，避免绘制过程中频道移动缩放导致卡顿情况
+ */
 const layerConfigs = window._layerConfigs;
 const mapSettings = {
     WKID: '4490', // 地理坐标参考
     EXTENT: [-180, -90, 180, 90],// minx,miny,maxx,maxy
-    CENTER: [108.77, 34.39],
+    CENTER: [107.802,28.91],
     ZOOM: 4,
+    // MAXZOOM: 6,
     MAXZOOM: 18,
-    MINZOOM: 1
+    MINZOOM: 4
 };
 const maxZoom = mapSettings.MAXZOOM;
 const epsg = "EPSG:" + mapSettings.WKID;
@@ -15,17 +27,38 @@ const projection = new ol.proj.Projection({
     extent: mapSettings.EXTENT
 });
 const info = [
-    {maxZoom: 6, ratio: 0.15},
-    {maxZoom: 12, ratio: 0.33, stride: 20},
-    {maxZoom: 18, ratio: 0.50, stride: 10},
-    {maxZoom: 22, ratio: 1, stride: 5},
+    {maxZoom: 6, ratio: 0.1, stride: 20},
+    {maxZoom: 12, ratio: 0.10, stride: 15},
+    {maxZoom: 18, ratio: 0.50, stride: 5},
+    {maxZoom: 22, ratio: 1, stride: 3},
 
 ]
+
+const getInfo = (zoom) => {
+    if (zoom <= info[0].maxZoom) {
+        return info[0];
+    } 
+    if (zoom <= info[1].maxZoom) {
+        return info[1];
+    } 
+    if (zoom <= info[2].maxZoom) {
+        return info[2];
+    } 
+    return info[3];
+
+}
+
+/**
+ * 开发调试
+ */
+window._stopUpdateSource_ = false; // 停止更新数据源
+window._stopUpdatePoints_ = false; // 停止更新点
 
 /**
  * @description 辅助工具类   
  */
-function Helper() { 
+function Helper(props) { 
+    this.extent = [70, 15, 136, 55];
     this.geoJsonGormat = null;
     this.pointVectorSource = null;
     this.pointVectorLayer = null;
@@ -34,10 +67,19 @@ function Helper() {
     this.view = null;
     this.map = null;
     this.pointStyle = null;
+    this.pointStyle1 = null;
+    this.pointStyle2 = null;
     this.gridStride = null;
     this.layerFactory = new LayerFactory();
     this.sourceCollection = null;
     this.dataSource = null;
+    this.zoom = null;
+    this.center = []
+    this.enqueue = new Enqueue();
+    this.reconciliation = this.setReconciliation(props?.reconciliation ?? false)
+    this.reconciliationTaskNumber = 5;
+    this.whenMoveAndUpdatePoints = true;
+    window._helper = this;
 };
 
 /**
@@ -47,7 +89,7 @@ function Helper() {
 Helper.prototype.initMap = function(target) {
     this.geoJsonGormat = new ol.format.GeoJSON();
     this.pointVectorSource = new ol.source.Vector({ features: [] });
-    this.pointVectorLayer = new ol.layer.Vector({ source: this.pointVectorSource, zIndex: 999999 });
+    this.pointVectorLayer = new ol.layer.Vector({ source: this.pointVectorSource, zIndex: 999997 });
     this.layerFactory.init(projection)
     this.view = new ol.View({
         center: mapSettings.CENTER,
@@ -64,139 +106,246 @@ Helper.prototype.initMap = function(target) {
     });
 
     this.map.addLayer(this.pointVectorLayer);
-    this.getLayers();
+    this.createLayers();
     this.bindEvent();
     this.setZoom();
-    this.geoJson1to6 = null;
-    this.features1to6 = []; 
+    this.zoom = this.getZoom();
+    this.center = this.view.getCenter();
+    this.whenMoveAndUpdatePoints = this.setWhenMoveAndUpdatePoints(this.extent)
 
-    this.source7to12Collection = new SourceCollection({map: this.map, stride: info[1].stride, });
-    this.source13to18Collection = new SourceCollection({map: this.map, stride: info[2].stride, });
-    this.source19Collection = new SourceCollection({map: this.map, stride: info[3].stride});
+    this.source1to6Collection = new SourceCollection({map: this.map, stride: info[0].stride, extent: this.extent });
+    this.source7to12Collection = new SourceCollection({map: this.map, stride: info[1].stride, extent: this.extent});
+    this.source13to18Collection = new SourceCollection({map: this.map, stride: info[2].stride, extent: this.extent});
+    this.source19Collection = new SourceCollection({map: this.map, stride: info[3].stride, extent: this.extent});
+
 }
 
-Helper.prototype.getPointStyle = function() {
-    return new Promise((resolve) => {
-        if (this.pointStyle) {
-            resolve(this.pointStyle)
-            return 
-        }
-        const pointImage = '../public/images/point.png' 
-        const point1Image = '../public/images/point1.png' 
+Helper.prototype.bindEvent = function() {
+    let timer = null;
+    this.map.on('pointermove',function(e) {
+        document.getElementById('coord').innerHTML = e.coordinate.map(v => Math.floor(v * 1000) / 1000).join();
+    }, this)
 
-        this.loadImage(point1Image).then((img) => {
-            this.pointStyle = new ol.style.Style({
-                image: new ol.style.Icon({ img: img, imgSize: [2,2], })
-            });
-            resolve(this.pointStyle)
-        })
-    })
+    this.map.on('moveend', function() {
+        if (timer) clearTimeout(timer)
+        this.setZoom();
+        timer = setTimeout(() => {
+            this.updatePoints();
+        }, 400)
+    }, this)
 }
 
-Helper.prototype.setPointSources = function(geoJson) {
-    this.geoJson1to6 = { ...geoJson, features: this.filterDataSourceByZoom(geoJson.features, 1) };
-    this.source7to12Collection.setGeoJson(geoJson, this.filterDataSourceByZoom(geoJson.features, 7))
-    this.source13to18Collection.setGeoJson(geoJson, this.filterDataSourceByZoom(geoJson.features, 13))
-    this.source19Collection.setGeoJson(geoJson, this.filterDataSourceByZoom(geoJson.features, 19))
-    console.log(this.geoJson1to6)
-    console.log(this.source7to12Collection)
-    console.log(this.source13to18Collection)
-    console.log(this.source19Collection)
+Helper.prototype.setReconciliation = function(reconciliation) {
+    this.reconciliation = reconciliation;
 }
 
-Helper.prototype.renderPoints = function() {
-    return new Promise((resolve) => {
-        this.getPointStyle().then(() => {
-            let features = this.getSource();
+Helper.prototype.setWhenMoveAndUpdatePoints = function(extent) {
+    return ol.extent.containsExtent(this.getViewExtent(),extent)
+}
+
+
+Helper.prototype.reconciliationRenderPoints = function() {
+    console.log('reconciliationRenderPoints')
+    return new Promise( (resolve) => {
+        this.getPointStyle().then(async() => {
+            const extents = this.getSourceCollection().getExtentsByExtent(this.getViewExtent());
+            const beforeClearFeatureLength = this.pointVectorSource.getFeatures().length; 
+            const clearedFeaturesLength = this.clearByExtents(extents);
+            const afterClearFeatureLength = this.pointVectorSource.getFeatures().length
+            let features = this.getCacheFeaturesByExtents(extents);
             if (!features || !features.length) {
-                const geoJson = this.getGeoJson();
-                features = this.geoJsonGormat.readFeatures(geoJson);
-                // this.saveSource(features);
+                features = await this.renderFeaturesByExtent(extents, true)
+                this.cacheFeaturesByExtents(features, extents);
             }
-            this.pointVectorLayer.setStyle(this.pointStyle)
-            this.pointVectorSource.clear();
-            this.pointVectorSource.addFeatures(features)
+            this.log({
+                beforeClearFeatureLength: beforeClearFeatureLength, 
+                afterClearFeatureLength: afterClearFeatureLength,
+                clearedFeaturesLength: clearedFeaturesLength,
+                addFeatureLength: features.length,
+                allFeatureLength: this.pointVectorSource.getFeatures().length, 
+            })
             resolve({features})
         })
 
     })
 }
 
-Helper.prototype.getGeoJson = function() {
+Helper.prototype.batchRenderPoints = function() {
+    console.log('batchRenderPoints')
+    return new Promise( (resolve) => {
+        this.getPointStyle().then(async() => {
+            const extents = this.getSourceCollection().getExtentsByExtent(this.getViewExtent());
+            const beforeClearFeatureLength = this.pointVectorSource.getFeatures().length; 
+            const clearedFeaturesLength = this.clearByExtents(extents);
+            const afterClearFeatureLength = this.pointVectorSource.getFeatures().length
+            let features = this.getCacheFeaturesByExtents(extents);
+            if (!features || !features.length) {
+                features = await this.renderFeaturesByExtent(extents)
+                this.cacheFeaturesByExtents(features, extents);
+            }
+            this.addFeatures(features)
+            this.log({
+                beforeClearFeatureLength: beforeClearFeatureLength, 
+                afterClearFeatureLength: afterClearFeatureLength,
+                clearedFeaturesLength: clearedFeaturesLength,
+                addFeatureLength: features.length,
+                allFeatureLength: this.pointVectorSource.getFeatures().length, 
+            })
+            resolve({features})
+        })
+    })
+}
+
+Helper.prototype.renderPoints = function() {
+    return new Promise(resolve => {
+        if (this.reconciliation) {
+            this.enqueue.cancel()
+            this.reconciliationRenderPoints().then(resolve)
+        } else {
+            this.batchRenderPoints().then(resolve)
+        }
+    })
+}
+
+Helper.prototype.updatePoints = function() {
+    if (window._stopUpdatePoints_) return
+    console.log('updatePoints')
+    const prevWhenMoveAndUpdatePoints = this.whenMoveAndUpdatePoints;
+    const zoom = this.getZoom()
+    const prevZoom = this.zoom;
+    const prevCenter = [...this.center];
+    const prevZoomInfo = getInfo(prevZoom);
+    const zoomInfo = getInfo(zoom);
+    this.zoom = zoom;
+    this.center = this.view.getCenter();
+    this.whenMoveAndUpdatePoints = this.setWhenMoveAndUpdatePoints(this.extent)
+    const isZoomChanged = zoom !== prevZoom;
+    const isCenterChanged = prevCenter[0] !== this.center[0] || prevCenter[1] !== this.center[1];
+    console.log(this.whenMoveAndUpdatePoints)
+    if (!isZoomChanged && !isCenterChanged)  return
+    // 全国范围内缩放
+    if (prevZoomInfo.maxZoom === info[0].maxZoom && zoomInfo.maxZoom === info[0].maxZoom) {
+        if (prevWhenMoveAndUpdatePoints && this.whenMoveAndUpdatePoints) return
+    }
+    this.renderPoints()
+}
+
+
+Helper.prototype.setCoordinates = function(coordinates) {
+    this.source1to6Collection.setCoordinates(this.filterDataSourceByZoom(coordinates, 1))
+    this.source7to12Collection.setCoordinates(this.filterDataSourceByZoom(coordinates, 7))
+    this.source13to18Collection.setCoordinates(this.filterDataSourceByZoom(coordinates, 13))
+    this.source19Collection.setCoordinates(this.filterDataSourceByZoom(coordinates, 19))
+}
+
+Helper.prototype.getCoordinatesByExtents = function(extents) {
+    const internalExtents = extents || this.getSourceCollection().getExtentsByExtent(this.getViewExtent());
+    return this.getSourceCollection().getCoordinatesByExtents(internalExtents)
+}
+
+Helper.prototype.addFeatures = function(features) {
+    if (!window._stopUpdateSource_) {
+        this.pointVectorSource.addFeatures(features)
+    }
+}
+
+Helper.prototype.renderFeaturesByExtent = function(extents, reconciliation) {
+    return new Promise(resolve => {
+        const coordinates = this.getCoordinatesByExtents(extents);
+        const features = []
+        const taskHandle = (coord) => {
+            const feature = new ol.Feature({ geometry: new ol.geom.Point(coord) });
+            if (isDev) {
+                feature.setStyle(this.pointStyle === this.pointStyle1 ? this.pointStyle2 : this.pointStyle1);
+            }
+            features.push(feature);
+            return feature
+        }
+
+        if (!reconciliation) {
+            for (let i = 0; i < coordinates.length - 1; i += 1) {
+                taskHandle(coordinates[i])
+            }
+            resolve(features)
+            return 
+        }
+
+        
+        const reconciliationTaskNumber = this.reconciliationTaskNumber 
+        const batchTaskHandle = (params) => {
+            const internalFeatures = params.coordinates.map(taskHandle)
+            features.push(...internalFeatures)
+            this.addFeatures(internalFeatures)
+        }
+        for (let i = 0; i < coordinates.length - 1; i += reconciliationTaskNumber) {
+            const coords = coordinates.slice(i, i + reconciliationTaskNumber);
+            this.enqueue.enqueueTask(batchTaskHandle, {coordinates: coords}, () => {
+                resolve(features)
+            });
+        }
+    })
+}
+
+Helper.prototype.clearByExtents = function(extents) {
+    const internalExtents = extents || this.getSourceCollection().getExtentsByExtent(this.getViewExtent());
+    const features = internalExtents.reduce((acc, extent) => {
+        const f = this.pointVectorSource.getFeaturesInExtent(extent);
+        if (f.length) acc.push(...f)
+        return acc
+    }, [])
+    features.forEach((feature) => this.pointVectorSource.removeFeature(feature))
+    return features.length;
+}
+
+Helper.prototype.clear = function() {
+    this.pointVectorSource.clear()
+}
+
+Helper.prototype.cacheFeaturesByExtents = function(features, extents) {
     const zoom = this.getZoom();
     const extent = this.getViewExtent();
-    if (zoom <= info[0].maxZoom) {
-        return this.geoJson1to6;
-    } 
-    if (zoom <= info[1].maxZoom) {
-        return this.source7to12Collection.getGeoJsonByExtent(extent);
-    } 
-    if (zoom <= info[2].maxZoom) {
-        return this.source13to18Collection.getGeoJsonByExtent(extent);
-    } 
-    return this.source19Collection.getGeoJsonByExtent(extent);
+    this.getSourceCollection().cacheFeaturesByExtents(features,extents)
+}
+
+Helper.prototype.log = function(params) {
+    document.getElementById("log").innerHTML = `
+        删除前${params.beforeClearFeatureLength}个, 
+        删除后${params.afterClearFeatureLength}个, 
+        删除了${params.clearedFeaturesLength}个, 
+        增加了${params.addFeatureLength}个,
+        一共${params.allFeatureLength}个
+    ` 
 }
 
 Helper.prototype.getViewExtent = function() {
     return this.view.calculateExtent(this.map.getSize());
 }
 
-Helper.prototype.getSource = function() {
+
+Helper.prototype.getSourceCollection = function() {
     const zoom = this.getZoom();
-    const extent = this.getViewExtent();
-    return []
     if (zoom <= info[0].maxZoom) {
-        return this.features1to6;
+        return this.source1to6Collection;
     } 
     if (zoom <= info[1].maxZoom) {
-        return this.source7to12Collection.getSourceByExtent(extent)
+        return this.source7to12Collection;
     } 
     if (zoom <= info[2].maxZoom) {
-        return this.source13to18Collection.getSourceByExtent(extent);
-    }
-    return this.source19Collection.getSourceByExtent(extent)
+        return this.source13to18Collection;
+    } 
+    return this.source19Collection; 
 }
 
-Helper.prototype.saveSource = function(features) {
-    const zoom = this.getZoom();
-    const extent = this.getViewExtent();
-    if (zoom <= info[0].maxZoom) {
-        this.features1to6 = features;
-    } else if (zoom <= info[1].maxZoom) {
-        this.source7to12Collection.save(features, extent);
-    } else if (zoom <= info[2].maxZoom) {
-        this.source13to18Collection.save(features, extent);
-    } else {
-        this.source19Collection.save(features, extent)
-    }
+Helper.prototype.getCacheFeaturesByExtents = function(extents) {
+    return []
+    // return this.getSourceCollection().getCacheFeaturesByExtents(extents)
 }
 
-Helper.prototype.getLayers = function() {
+Helper.prototype.createLayers = function() {
     for (let i = 0; i < layerConfigs.length; i++)  {
         const layer = this.layerFactory.getLayer(layerConfigs[i])
         this.map.addLayer(layer)
     }
-
-}
-
-Helper.prototype.clear = function() {
-    this.pointVectorSource.clear();
-}
-
-Helper.prototype.bindEvent = function() {
-    this.map.on('pointermove',function(e) {
-        this.setCoordinaties(e.coordinate);
-    }, this)
-
-    this.map.on('moveend', function() {
-        this.setZoom();
-
-    }, this)
-
-}
-
-Helper.prototype.setCoordinaties = function(coordinaties) {
-    document.getElementById('coord').innerHTML = coordinaties.map(v => Math.floor(v * 1000) / 1000).join();
 }
 
 Helper.prototype.getZoom = function() {
@@ -208,6 +357,7 @@ Helper.prototype.setZoom = function() {
     document.getElementById('zoom').innerHTML = zoom;
     return zoom;
 }
+
 /**
  * 
  * @description 如果需要从一个数组中按一定比例抽取元素，可以通过计算数组长度和抽取比例来确定抽取的元素数量，然后再根据元素数量计算出每个元素之间的索引跨度值。
@@ -247,7 +397,6 @@ Helper.prototype.filterDataSourceByIndexStride = function (dataSource, indexStri
  * @returns {Array}
  */
 Helper.prototype.filterDataSourceByZoom = function(dataSource, zoom) {
-    
     let ratio = 1;
     if (zoom <= info[0].maxZoom) {
         ratio = info[0].ratio
@@ -263,17 +412,6 @@ Helper.prototype.filterDataSourceByZoom = function(dataSource, zoom) {
     
     return d;
 }
-
-/**
- *
- * @description 计算两点距离 
- * @param {number[]} a 经纬度坐标 
- * @param {number[]} b 经纬度坐标
- * @returns {number}
- */
-Helper.prototype.length = function (a, b) {
-    return Math.sqrt((b[0] - a[0]) * (b[0] - a[0]) + (b[1] - a[1]) * (b[1] - a[1]));
-};
 
 /**
  *
@@ -304,11 +442,35 @@ Helper.prototype.fetchDataByScript = function(url) {
         var script = document.createElement('script');
         script.type = 'text/javascript';
         script.onload = function() {
-          resolve(window.geojson)
+          resolve(window.coordinates)
           script.remove()
         };
         script.src = url;
         document.head.appendChild(script);
     })
 }
+
+Helper.prototype.getPointStyle = function() {
+    return new Promise((resolve) => {
+        if (this.pointStyle) {
+            this.pointStyle = this.pointStyle1 === this.pointStyle ? this.pointStyle2 : this.pointStyle1;
+            resolve(this.pointStyle)
+            return 
+        }
+        const pointImage = './images/point2.png' 
+        const point1Image = './images/point1.png' 
+        Promise.all([this.loadImage(pointImage), this.loadImage(point1Image)]).then(res => {
+            this.pointStyle1 = new ol.style.Style({
+                image: new ol.style.Icon({ img: res[0], imgSize: [2,2], })
+            });
+            this.pointStyle2 = new ol.style.Style({
+                image: new ol.style.Icon({ img: res[1], imgSize: [2,2], })
+            });
+            this.pointStyle = this.pointStyle1
+            this.pointVectorLayer.setStyle(this.pointStyle)
+            resolve(this.pointStyle)
+        })
+    })
+}
+
 window.Helper = Helper;
