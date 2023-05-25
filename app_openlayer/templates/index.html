@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Title</title>
+    <link rel="shortcut icon" href="#"/>
+
+    <link rel="stylesheet" href="{{ url_for('static',filename='libs/bootstrap/css/bootstrap.css') }}">
+    <link rel="stylesheet" href="{{url_for('static', filename='demo.css')}}">
+
+    <script src="{{ url_for('static',filename='libs/bootstrap/js/bootstrap.js') }}"></script>
+    <script src="{{ url_for('static',filename='libs/jquery-3.6.0.min.js')}}"></script>
+
+    <link rel="stylesheet" href="{{ url_for('static',filename='libs/openlayer/ol.css') }}">
+    <script src="{{ url_for('static',filename='libs/openlayer/ol.js') }}"></script>
+
+    <link rel="stylesheet" href="{{ url_for('static',filename='libs/mapbox-gl/mapbox-gl.css') }}">
+    <script src="{{ url_for('static',filename='libs/mapbox-gl/mapbox-gl.js') }}"></script>
+
+    <link rel="stylesheet" href="{{ url_for('static',filename='libs/mapbox-gl-enhance/mapbox-gl-enhance.css') }}">
+    <script src="{{ url_for('static',filename='libs/mapbox-gl-enhance/mapbox-gl-enhance.js') }}"></script>
+
+    <script src="https://cdn.polyfill.io/v3/polyfill.min.js?features=fetch,requestAnimationFrame,Element.prototype.classList,URL,TextDecoder,Number.isInteger"></script>
+    <script src="https://unpkg.com/elm-pep"></script>
+
+    <!--https://www.bootcdn.cn/proj4js/-->
+    <script src="{{ url_for('static',filename='libs/proj4js/v2.7.5/proj4.min.js') }}"></script>
+
+    <!-- 增加地图高度 -->
+    <style>
+    </style>
+</head>
+<body>
+<!--<h1>Flask + Leaflet</h1>-->
+
+<div id="llmap" >
+     <div id="layers_control">
+         <div>
+             <input id="Checkbox_background" name="Checkbox_background" type="checkbox" value="background" checked="checked"
+                onclick="Checkbox_background_checked(this)" />
+            <label id="lable_background" for="Checkbox_background">背景色</label>
+         </div>
+         <div>
+             <input id="Checkbox_xian" name="Checkbox_xian" type="checkbox" value="xian" checked="checked"
+                onclick="Checkbox_xian_checked(this)" />
+            <label id="lable_xian" for="Checkbox_xian">县（可选择）</label>
+         </div>
+         <div>
+             <input id="Checkbox_ldgx_small" name="Checkbox_ldgx_small" type="checkbox" value="ldgx_small" checked="checked"
+                onclick="Checkbox_ldgx_small_checked(this)" />
+            <label id="label_ldgx_small" for="Checkbox_ldgx_small">ldgx2020_ldgx2_p(512)</label>
+         </div>
+         <div>
+             <input id="Checkbox_ldgx_big" name="Checkbox_ldgx_big" type="checkbox" value="ldgx_big" checked="checked"
+                onclick="Checkbox_ldgx_big_checked(this)" />
+            <label id="label_ldgx_big" for="Checkbox_ldgx_big">ldgx2020_ldgx2_p(4096)</label>
+         </div>
+         <div>
+             <input id="Checkbox_ldgx_label" name="Checkbox_ldgx_label" type="checkbox" value="ldgx_label" checked="checked"
+                onclick="Checkbox_label_checked(this)" />
+            <label id="label_ldgx_label" for="Checkbox_ldgx_label">标注(4096)</label>
+         </div>
+         <div>
+             <input id="Checkbox_ldgx_change_color" name="Checkbox_ldgx_change_color" type="checkbox" value="ldgx_label" checked="checked"
+                onclick="Checkbox_change_color_checked(this)" />
+            <label id="label_ldgx_change_color" for="Checkbox_ldgx_change_color">ldgx图层改变颜色</label>
+         </div>
+         <div>
+             <input id="Checkbox_zq_line_change_color" name="Checkbox_zq_line_change_color" type="checkbox" value="ldgx_label" checked="checked"
+                onclick="Checkbox_zq_line_checked(this)" />
+            <label id="label_zq_line_change_color" for="Checkbox_zq_line_change_color">政区线(4096)</label>
+         </div>
+     </div>
+
+    <div id="myposition"></div>
+</div>
+
+<script src="{{url_for('static', filename='demo.js')}}"></script>
+</body>
+</html>

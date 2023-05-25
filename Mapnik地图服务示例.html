@@ -1,0 +1,86 @@
+<!Doctype html>
+<html xmlns=http://www.w3.org/1999/xhtml>
+<head>
+    <meta http-equiv=Content-Type content="text/html;charset=utf-8">
+    <meta http-equiv=X-UA-Compatible content="IE=edge,chrome=1">
+    <meta content=always name=referrer>
+    <title>Mapnik地图服务示例</title>
+
+    <!--Let browser know website is optimized for mobile-->
+    <meta name="viewport" content="width=device-width, user-scalable=no, initial-scale=1.0"/>
+
+    <link href="ol.css" rel="stylesheet" type="text/css" />
+    <link href="index.css" rel="stylesheet" type="text/css" />
+    <script type="text/javascript" src="ol-debug.js" charset="utf-8"></script>
+</head>
+<body>
+<main class="bodymain">
+    <div id="map" class="map"></div>
+</main>
+<script>
+
+    var selection = {};
+    var idProp = 'pk_uid';
+
+    var vtLayer = new ol.layer.VectorTile({
+            source: new ol.source.VectorTile({
+                projection: 'EPSG:4326',
+                format: new ol.format.MVT(),
+                url: 'http://10.10.2.24:6999/xh_realtime_points/{z}/{x}/{y}/tile.mvt'
+            }),
+            style: function(feature, resolution) {
+                var selected = !!selection[feature.get(idProp)];
+                console.log(feature.type_);
+                if (feature.type_ == "Point") {
+                    return new ol.style.Style({
+                        image: new ol.style.Circle({
+                            radius: selected ? 4 : 2,
+                            fill: new ol.style.Fill({color: selected ? 'rgba(255, 0, 0)' : 'rgba(0, 102, 204)'})
+                        })
+                    })
+                }
+                else {
+                    return new ol.style.Style({
+                        stroke: new ol.style.Stroke({
+                            color: selected ? 'rgba(255, 0, 0)' : 'rgba(0, 102, 204)',
+                            width: selected ? 4 : 2
+                        })
+                    })
+                }
+            }
+        });
+
+    var map = new ol.Map({
+        target: 'map',
+        view: new ol.View({
+            center: [115, 39],
+            projection: 'EPSG:4326',
+            zoom: 10
+        }),
+        layers: [
+            new ol.layer.Tile({
+                title: "OSM",
+                source: new ol.source.OSM({
+                    attributions: []
+                })
+            }),
+            vtLayer
+        ]
+    });
+
+    map.on('singleclick', showInfo);
+    function showInfo(event) {
+        selection = {};
+        var features = map.getFeaturesAtPixel(event.pixel);
+        if (!features) {
+            vtLayer.setStyle(vtLayer.getStyle());
+            return;
+        }
+        var feature = features[0];
+        var fid = feature.get(idProp);
+        selection[fid] = feature;
+        vtLayer.setStyle(vtLayer.getStyle());
+    }
+</script>
+</body>
+</html>

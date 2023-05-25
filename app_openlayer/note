@@ -1,0 +1,62 @@
+<?xml version="1.0" encoding="utf-8"?>
+
+<Map srs="+proj=longlat +ellps=GRS80 +no_defs">
+  <Style name="My Style">
+    <Rule>
+      <MaxScaleDenominator>10000</MaxScaleDenominator>
+      <LineSymbolizer stroke="rgb(237,179,0)" stroke-width="1.5" stroke-dasharray="2,3"/>
+    </Rule>
+  </Style>
+  <Style name="My Style1">
+    <Rule>
+      <MaxScaleDenominator>10000</MaxScaleDenominator>
+      <Filter><![CDATA[[you_shi_sz] <>'' and [you_shi_sz] <>' ' and [you_shi_sz] <>null]]></Filter>
+      <TextSymbolizer face-name="Microsoft YaHei Bold" size="11" halo-fill="white" halo-radius="1" allow-overlap="false" placement="interior">[label_up]+''
+        <Format face-name="Microsoft YaHei Bold" size="5">' ——————————— '</Format>''+[yssz_mc]
+      </TextSymbolizer>
+    </Rule>
+    <Rule>
+      <MaxScaleDenominator>10000</MaxScaleDenominator>
+      <Filter><![CDATA[[you_shi_sz] ='' or [you_shi_sz] =' ' or [you_shi_sz] =null]]></Filter>
+      <TextSymbolizer face-name="Microsoft YaHei Bold" size="11" halo-fill="white" halo-radius="1" allow-overlap="false" placement="interior">[label_up]+''
+        <Format face-name="Microsoft YaHei Bold" size="5">' ——————————— '</Format>''+[dl_mc]
+      </TextSymbolizer>
+    </Rule>
+  </Style>
+  <Layer name="layer" srs="+proj=longlat +ellps=GRS80 +no_defs ">
+    <StyleName>My Style</StyleName>
+    <Datasource>
+      <Parameter name="type">postgis</Parameter>
+      <Parameter name="application_name">mapzone-dynamic-map-node</Parameter>
+      <Parameter name="host">192.168.20.123</Parameter>
+      <Parameter name="port">5432</Parameter>
+      <Parameter name="dbname">lydb</Parameter>
+      <Parameter name="user">postgres</Parameter>
+      <Parameter name="password">dlwy</Parameter>
+      <Parameter name="table">(select * from ldgx2018."ldgx2_p" a ) as mztable</Parameter>
+      <Parameter name="extent">73.449003,18.159311,134.773935,53.562246</Parameter>
+    </Datasource>
+    <StyleName>My Style1</StyleName>
+    <Datasource>
+      <Parameter name="type">postgis</Parameter>
+      <Parameter name="application_name">mapzone-dynamic-map-node</Parameter>
+      <Parameter name="host">192.168.20.123</Parameter>
+      <Parameter name="port">5432</Parameter>
+      <Parameter name="dbname">lydb</Parameter>
+      <Parameter name="user">postgres</Parameter>
+      <Parameter name="password">dlwy</Parameter>
+      <Parameter name="table">(select *,concat(xiao_ban,'-',round(cast(mian_ji as numeric), 2)) as label_up from ldgx2018."ldgx2_p" a ) as mztable</Parameter>
+      <Parameter name="extent">73.449003,18.159311,134.773935,53.562246</Parameter>
+    </Datasource>
+  </Layer>
+</Map>
+
+
+白光楠(253412470) 2021/7/15 10:09:53
+xiao_ban，mian_ji，you_shi_sz，po_xiang, di_lei,
+yssz_mc，dl_mc
+
+
+
+select public.UpdateGeometrySRID('quanguo_zq_line', 'country', 'geom', 4490);
+select public.UpdateGeometrySRID('quanguo_zq_line', 'lakes', 'geom', 4490);

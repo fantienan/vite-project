@@ -1,0 +1,137 @@
+<!Doctype html>
+<html xmlns=http://www.w3.org/1999/xhtml>
+<head>
+    <meta http-equiv=Content-Type content="text/html;charset=utf-8">
+    <meta http-equiv=X-UA-Compatible content="IE=edge,chrome=1">
+    <meta content=always name=referrer>
+    <title>Mapnik地图服务示例</title>
+
+    <!--Let browser know website is optimized for mobile-->
+    <meta name="viewport" content="width=device-width, user-scalable=no, initial-scale=1.0"/>
+
+    <link href="ol.css" rel="stylesheet" type="text/css" />
+    <link href="index.css" rel="stylesheet" type="text/css" />
+    <script type="text/javascript" src="ol-debug.js" charset="utf-8"></script>
+</head>
+<body>
+<main class="bodymain">
+    <div id="map" class="map"></div>
+</main>
+<script>
+
+    var selection = {};
+    var idProp = 'pk_uid';
+    var pointStyle1 = null;
+    var pointStyle2 = null;
+    var pointStyle3 = null;
+    var pointStyle4 = null;
+    var imgSize = [4,4];
+
+    getPointStyle().then(() => {
+        var vtLayer = new ol.layer.VectorTile({
+                source: new ol.source.VectorTile({
+                    projection: 'EPSG:3857',
+                    format: new ol.format.MVT(),
+                    url: 'http://10.10.2.24:8080/data/vtile/{z}/{x}/{y}.pbf'
+                }),
+                style: function(feature, resolution) {
+                    var selected = !!selection[feature.get(idProp)];
+                    console.log(feature.type_);
+                    return pointStyle1
+                    // if (feature.type_ == "Point") {
+                    //     return new ol.style.Style({
+                    //         image: new ol.style.Circle({
+                    //             radius: selected ? 4 : 2,
+                    //             fill: new ol.style.Fill({color: selected ? 'rgba(255, 0, 0)' : 'rgba(0, 102, 204)'})
+                    //         })
+                    //     })
+                    // }
+                    // else {
+                    //     return new ol.style.Style({
+                    //         stroke: new ol.style.Stroke({
+                    //             color: selected ? 'rgba(255, 0, 0)' : 'rgba(0, 102, 204)',
+                    //             width: selected ? 4 : 2
+                    //         })
+                    //     })
+                    // }
+                }
+            });
+
+        var map = new ol.Map({
+            target: 'map',
+            view: new ol.View({
+                center: [12000000, 4500000],
+                renderer: ['webgl', 'canvas'],
+                projection: 'EPSG:3857',
+                zoom: 5
+            }),
+            layers: [
+                // new ol.layer.Tile({
+                //     title: "OSM",
+                //     source: new ol.source.OSM({
+                //         attributions: []
+                //     })
+                // }),
+                vtLayer
+            ]
+        });
+
+        map.on('singleclick', showInfo);
+        function showInfo(event) {
+            selection = {};
+            var features = map.getFeaturesAtPixel(event.pixel);
+            if (!features) {
+                vtLayer.setStyle(vtLayer.getStyle());
+                return;
+            }
+            var feature = features[0];
+            var fid = feature.get(idProp);
+            selection[fid] = feature;
+            vtLayer.setStyle(vtLayer.getStyle());
+        }
+
+    })
+    function getPointStyle() {
+        return new Promise((resolve) => {
+            if (pointStyle1) {
+                resolve()
+                return 
+            }
+            const point1Image = './images/point1.png' 
+            const point2Image = './images/point2.png' 
+            const point3Image = './images/point3.png' 
+            const point4Image = './images/point4.png' 
+            Promise.all([loadImage(point1Image), loadImage(point2Image), loadImage(point3Image), loadImage(point4Image)]).then(res => {
+                pointStyle1 = new ol.style.Style({
+                    image: new ol.style.Icon({ img: res[0], imgSize: imgSize, })
+                });
+                pointStyle2 = new ol.style.Style({
+                    image: new ol.style.Icon({ img: res[1], imgSize: imgSize, })
+                });
+                pointStyle3 = new ol.style.Style({
+                    image: new ol.style.Icon({ img: res[2], imgSize: imgSize, })
+                });
+                pointStyle4 = new ol.style.Style({
+                    image: new ol.style.Icon({ img: res[3], imgSize: imgSize, })
+                });
+                resolve(pointStyle1)
+            })
+        })
+    }
+
+    function loadImage(url) {
+        return new Promise((resolve, reject) => {
+            const img = new Image();
+            img.onload = function () {
+                resolve(img);
+            };
+            img.onerror = function () {
+                reject(new Error('Could not load image at ' + url));
+            };
+            img.src = url;
+        });
+    }
+
+</script>
+</body>
+</html>
