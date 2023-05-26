@@ -1,10 +1,15 @@
+import mapboxgl from '@mapzone/mapbox-gl';
+import MapboxDraw from '@mapbox/mapbox-gl-draw';
+import * as turf from '@turf/turf';
+import '@mapbox/mapbox-gl-draw/dist/mapbox-gl-draw.css';
+
 function main() {
   const keyMatch = location.search.match(/[\?\&]key=([^&]+)/i);
   const keyParam = keyMatch ? '?key=' + keyMatch[1] : '';
   const tk = '2db0ba5b3fa4414b2ea0ac2903d7519c';
   // const tk = 'c5e1b213ec92118ae92d18fc19883da0';
 
-  const mbMap = new mapboxgl.Map({
+  const map = new mapboxgl.Map({
     container: 'map', // container id
     crs: 'EPSG:4490',
     center: [101.74721254733845, 32.5665352689922],
@@ -67,16 +72,16 @@ function main() {
       ],
     },
   });
-  mbMap.on('load', (e) => {
+  map.on('load', (e) => {
     // const inspect = new MapboxInspect({ showInspectMap: true, backgroundColor: 'transparent', showInspectButton: false });
-    // mbMap.addControl(inspect);
-    mbMap.addControl(new mapboxgl.NavigationControl());
+    // map.addControl(inspect);
+    map.addControl(new mapboxgl.NavigationControl());
 
     // 轨迹点
-    // mbMap.loadImage('../images/point3.png', (error, image) => {
+    // map.loadImage('../images/point3.png', (error, image) => {
     //   if (error) throw error;
-    //   mbMap.addImage('point3', image);
-    //   mbMap.addLayer({
+    //   map.addImage('point3', image);
+    //   map.addLayer({
     //     id: 'vector_layer__xh_realtime_points_symbol',
     //     type: 'symbol',
     //     source: 'vector_layer_',
@@ -92,7 +97,36 @@ function main() {
     //   });
     // });
 
-    (window as any)._map = mbMap;
+    // 绘制
+    const draw = new MapboxDraw({
+      displayControlsDefault: false,
+      defaultMode: 'draw_polygon',
+      controls: {
+        polygon: true,
+        point: true,
+        trash: true,
+      },
+    });
+    map.on('draw.create', updateArea);
+    map.on('draw.delete', updateArea);
+    map.on('draw.update', updateArea);
+
+    function updateArea(e: any) {
+      const data = draw.getAll();
+      const answer = document.getElementById('calculated-area');
+      if (data.features.length > 0) {
+        const area = turf.area(data);
+        // Restrict the area to 2 decimal points.
+        const rounded_area = Math.round(area * 100) / 100;
+        // answer.innerHTML = `<p><strong>${rounded_area}</strong></p><p>square meters</p>`;
+      } else {
+        // answer.innerHTML = '';
+        if (e.type !== 'draw.delete') alert('Click the map to draw a polygon.');
+      }
+    }
+    map.addControl(draw);
+
+    (window as any)._map = map;
   });
 }
 
